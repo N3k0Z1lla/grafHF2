@@ -2,6 +2,7 @@
 // Computer Graphics Sample Program: Ray-tracing-let
 //=============================================================================================
 #include "framework.h"
+#include <GL/freeglut_std.h>
 #include <cmath>
 #include <cstdio>
 #include <math.h>
@@ -78,12 +79,14 @@ struct Cone : Intersectable {
 	vec3 norm;
 	float h;
 	float angle;
+	vec3 color;
 
-	Cone(vec3 _pos, vec3 _norm, float _h, float a) {
+	Cone(vec3 _pos, vec3 _norm, float _h, float a, vec3 c) {
 		pos = _pos;
 		norm = _norm;
 		h = _h;
 		angle = a;
+		color = c;
 	}
 
 	Hit intersect(const Ray& ray) {
@@ -110,7 +113,7 @@ struct Cone : Intersectable {
 			hit.position = ray.start + ray.dir * hit.t;
 			hit.normal = 
 				2 * dot(hit.position - pos, norm) * norm - 2*(hit.position - pos)*B; 
-			normalize(hit.normal);
+			hit.normal = normalize(hit.normal);
 			return hit;
 		}
 		if(0 <= vicces2 && vicces2 <= h) {
@@ -119,7 +122,7 @@ struct Cone : Intersectable {
 			hit.position = ray.start + ray.dir * hit.t;
 			hit.normal = 
 				2 * dot(hit.position - pos, norm) * norm - 2*(hit.position - pos)*B; 
-			normalize(hit.normal);
+			hit.normal = normalize(hit.normal);
 			return hit;
 		}
 	//	printf("sima\n");
@@ -145,11 +148,6 @@ public:
 	}
 };
 
-struct Light {
-	vec3 pos, color;
-
-	Light(vec3 pos, vec3 color) : pos(pos), color(color) {}
-};
 
 std::vector<Triangle> helper(std::vector<vec3> vertices, std::vector<std::vector<int>> indecies, vec3 offset, float scale) {
 	std::vector<Triangle> trigs;
@@ -160,7 +158,28 @@ std::vector<Triangle> helper(std::vector<vec3> vertices, std::vector<std::vector
 	return trigs;
 }
 
+std::vector<Triangle> octahedronMaker() {
+	std::vector<vec3> vertices = {
+		vec3(1, 0, 0),
+		vec3(0, -1, 0),
+		vec3(-1, 0, 0),
+		vec3(0, 1, 0),
+		vec3(0, 0, 1),
+		vec3(0, 0, -1)
 
+	};
+	std::vector<std::vector<int>> indexes = {
+		{1,  0,  4},
+		{2,  1,  4},
+		{3,  2,  4},
+		{0,  3,  4},
+		{0,  1,  5},
+		{1,  2,  5},
+		{2,  3,  5},
+		{3,  0,  5},
+	};
+	return helper(vertices, indexes, vec3(0.2, -0.25, 0.3), 0.1);
+}
 
 std::vector<Triangle> cubeMaker() {
 	std::vector<vec3> vertices = {
@@ -203,7 +222,7 @@ std::vector<Triangle> tetrahedronMaker() {
 		{2, 3, 4},
 	};
 
-	return helper(vertices, indexes, vec3(-0.5, -0.5, -0.5), 0.2);
+	return helper(vertices, indexes, vec3(-0.2, -0.3, -0.4), 0.2);
 }
 
 
@@ -212,26 +231,38 @@ float rnd() { return (float)rand() / RAND_MAX; }
 const float epsilon = 0.0001f;
 
 class Scene {
+public:
 	std::vector<Intersectable *> objects;
-	std::vector<Light *> lights;
+	std::vector<Cone *> lights;
 	Camera camera;
 	vec3 La;
-public:
+
 	void build() {
 		vec3 eye = vec3(sqrt(2), 0, sqrt(2)), vup = vec3(0, 1, 0), lookat = vec3(0, 0, 0);
 		float fov = 45 * M_PI / 180;
 		camera.set(eye, lookat, vup, fov);
 
 		La = vec3(0, 0, 0);
-		lights.push_back(new Light(vec3(0, 0, 0), vec3(1, 0, 0)));
+
+		Cone * c1 = new Cone(vec3(-0.5, 0, 0), vec3(1, 0, 0), 0.2, M_PI/6, vec3(1, 0, 0));
+		Cone * c2 = new Cone(vec3(0, 0.5, 0), vec3(0, -1, 0), 0.2, M_PI/6, vec3(0, 1, 0));
+		Cone * c3 = new Cone(vec3(0, 0, -0.5), vec3(0, 0, 1), 0.2, M_PI/6, vec3(0, 0, 1));
 
 		vec3 kd(0.3f, 0.2f, 0.1f), ks(2, 2, 2);
-		//objects.push_back(new Cone(vec3(0, 0, 0), vec3(sqrt(2)/2, 0, -sqrt(2)), 0.2, M_PI/8));
+		lights.push_back(c1);
+		objects.push_back(c1);
+		lights.push_back(c2);
+		objects.push_back(c2);
+		lights.push_back(c3);
+		objects.push_back(c3);
 		//objects.push_back(new Triangle(vec3(0, 0, 0), vec3(1, 0, 0), vec3(0, 1, 0)));
 		for (auto t : cubeMaker()) {
 			objects.push_back(new Triangle(t));
 		}
 		for (auto t : tetrahedronMaker()) {
+			objects.push_back(new Triangle(t));
+		}
+		for(auto t : octahedronMaker()) {
 			objects.push_back(new Triangle(t));
 		}
 
@@ -250,11 +281,13 @@ public:
 		}
 	}
 
-	Hit firstIntersect(Ray ray) {
+	Hit firstIntersect(Ray ray, bool cones = true) {
 		Hit bestHit;
 		for (Intersectable * object : objects) {
-			Hit hit = object->intersect(ray); //  hit.t < 0 if no intersection
-			if (hit.t > 0 && (bestHit.t < 0 || hit.t < bestHit.t))  bestHit = hit;
+			if(cones || dynamic_cast<Cone *>(object) == nullptr) {
+				Hit hit = object->intersect(ray); //  hit.t < 0 if no intersection
+				if (hit.t > 0 && (bestHit.t < 0 || hit.t < bestHit.t))  bestHit = hit;
+			}
 		}
 		if (dot(ray.dir, bestHit.normal) > 0) bestHit.normal = bestHit.normal * (-1);
 		return bestHit;
@@ -268,12 +301,16 @@ public:
 	vec3 trace(Ray ray, int depth = 0) {
 		Hit hit = firstIntersect(ray);
 		if (hit.t < 0) return La;
+		// return hit.normal;
 		vec3 outRadiance = vec3(0.2, 0.2, 0.2) * (1 - dot(hit.normal, ray.dir));
 		for(auto light : lights) {
-			Ray shadowray(hit.position, light->pos - hit.position);
+			vec3 kocclightpos = light->pos + light->norm * 20 * epsilon;
+			vec3 koccposs = (hit.position + hit.normal * epsilon);
+			Ray shadowray(koccposs, kocclightpos - koccposs);
 			Hit shadowhit = firstIntersect(shadowray);
-			if (shadowhit.t < 0 || shadowhit.t > length(light->pos - hit.position)) {
-				outRadiance = outRadiance + light->color;
+			if (shadowhit.t < 0 || shadowhit.t > length(kocclightpos - koccposs)) {
+
+				outRadiance = outRadiance + 0.2 / (length(kocclightpos - koccposs) * length(kocclightpos - koccposs))   * light->color;
 			} 
 		}
 		return outRadiance;
@@ -342,11 +379,12 @@ public:
 FullScreenTexturedQuad * fullScreenTexturedQuad;
 
 // Initialization, create an OpenGL context
+std::vector<vec4> image(windowWidth * windowHeight);
 void onInitialization() {
 	glViewport(0, 0, windowWidth, windowHeight);
 	scene.build();
 
-	std::vector<vec4> image(windowWidth * windowHeight);
+	
 	long timeStart = glutGet(GLUT_ELAPSED_TIME);
 	scene.render(image);
 	long timeEnd = glutGet(GLUT_ELAPSED_TIME);
@@ -361,8 +399,19 @@ void onInitialization() {
 
 // Window has become invalid: Redraw
 void onDisplay() {
+									
+	long timeStart = glutGet(GLUT_ELAPSED_TIME);
+	scene.render(image);
+	long timeEnd = glutGet(GLUT_ELAPSED_TIME);
+	printf("Rendering time: %d milliseconds\n", (timeEnd - timeStart));
+
+	delete fullScreenTexturedQuad;
+	// copy image to GPU as a texture
+	fullScreenTexturedQuad = new FullScreenTexturedQuad(windowWidth, windowHeight, image);
+	
 	fullScreenTexturedQuad->Draw();
-	glutSwapBuffers();									// exchange the two buffers
+	glutSwapBuffers();
+
 }
 
 // Key of ASCII code pressed
@@ -376,6 +425,24 @@ void onKeyboardUp(unsigned char key, int pX, int pY) {
 
 // Mouse click event
 void onMouse(int button, int state, int pX, int pY) {
+	if(button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+		Ray ray = scene.camera.getRay(pX, windowHeight - pY);
+		Hit hit = scene.firstIntersect(ray, false);
+		if(hit.t < 0) {
+			return;
+		}
+		Cone * closest = scene.lights[0];
+		for(auto c : scene.lights) {
+			if(length(hit.position - c->pos) < length(hit.position - closest->pos)) {
+				closest = c;
+			}
+		}
+		closest->pos = hit.position;
+		closest->norm = hit.normal;
+		glutPostRedisplay();
+
+	}
+
 }
 
 // Move mouse with key pressed

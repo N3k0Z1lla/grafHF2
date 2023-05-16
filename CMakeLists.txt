@@ -1,8 +1,9 @@
 cmake_minimum_required (VERSION 3.0)
-project (UFO_Hami)
+project (raytrace)
 set (CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set (CMAKE_CXX_FLAGS "-fopenmp")
+add_compile_options (-Wall -Wextra -Werror=pedantic -Ofast)
 add_executable (main raytrace.cpp framework.cpp)
-add_compile_options (-Werror=all -Wextra -Wpedantic -Ofast -ftree-parallelize-loops)
 
 target_link_libraries (main GL glut GLEW)
