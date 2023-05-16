@@ -1,6 +1,3 @@
-//=============================================================================================
-// Computer Graphics Sample Program: Ray-tracing-let
-//=============================================================================================
 #include "framework.h"
 #include <GL/freeglut_std.h>
 #include <cmath>
@@ -244,9 +241,9 @@ public:
 
 		La = vec3(0, 0, 0);
 
-		Cone * c1 = new Cone(vec3(-0.5, 0, 0), vec3(1, 0, 0), 0.2, M_PI/6, vec3(1, 0, 0));
-		Cone * c2 = new Cone(vec3(0, 0.5, 0), vec3(0, -1, 0), 0.2, M_PI/6, vec3(0, 1, 0));
-		Cone * c3 = new Cone(vec3(0, 0, -0.5), vec3(0, 0, 1), 0.2, M_PI/6, vec3(0, 0, 1));
+		Cone * c1 = new Cone(vec3(-0.5, 0, 0), vec3(1, 0, 0), 0.2, M_PI/8, vec3(1, 0, 0));
+		Cone * c2 = new Cone(vec3(0, 0.5, 0), vec3(0, -1, 0), 0.2, M_PI/8, vec3(0, 1, 0));
+		Cone * c3 = new Cone(vec3(0, 0, -0.5), vec3(0, 0, 1), 0.2, M_PI/8, vec3(0, 0, 1));
 
 		vec3 kd(0.3f, 0.2f, 0.1f), ks(2, 2, 2);
 		lights.push_back(c1);
